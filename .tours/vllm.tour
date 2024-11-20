@@ -1,0 +1,97 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "vllm-offline-inference",
+  "steps": [
+    {
+      "file": "examples/offline_inference.py",
+      "description": "LLM对外服务的初始化服务\n",
+      "line": 37
+    },
+    {
+      "file": "vllm/entrypoints/llm.py",
+      "description": "vLLM主要是使用TP的，这个是并行度\n",
+      "line": 64
+    },
+    {
+      "file": "vllm/entrypoints/llm.py",
+      "description": "默认使用float16",
+      "line": 66
+    },
+    {
+      "file": "vllm/entrypoints/llm.py",
+      "description": "可以显式控制显存的占用大小",
+      "line": 82
+    },
+    {
+      "file": "vllm/entrypoints/llm.py",
+      "description": "固定的一些参数的表达",
+      "line": 181
+    },
+    {
+      "file": "vllm/entrypoints/llm.py",
+      "description": "初始化LLMEngine的类",
+      "line": 209
+    },
+    {
+      "file": "vllm/engine/llm_engine.py",
+      "description": "主要是对接收请求和生成文本的整体的封装库",
+      "line": 137
+    },
+    {
+      "file": "vllm/engine/llm_engine.py",
+      "description": "最重要的部分: 用于执行模型的部分",
+      "line": 347
+    },
+    {
+      "file": "vllm/engine/llm_engine.py",
+      "description": "默认走的是GPUExecutor",
+      "line": 569
+    },
+    {
+      "file": "vllm/engine/llm_engine.py",
+      "description": "model_executor的种类是多后端实现的，由这个函数配置生成",
+      "line": 503
+    },
+    {
+      "file": "vllm/executor/gpu_executor.py",
+      "description": "最重要的是创建driver_worker，worker是一个多后端实现的方案，主要的作用是：",
+      "line": 38
+    },
+    {
+      "file": "vllm/engine/llm_engine.py",
+      "description": "如果任务不是embedding任务的话，需要进行kv cache的初始化",
+      "line": 350
+    },
+    {
+      "file": "vllm/engine/llm_engine.py",
+      "description": "从model_executor处获得可用的block的数量，包含gpu_blocks和cpu_blocks\n",
+      "line": 486
+    },
+    {
+      "file": "vllm/executor/gpu_executor.py",
+      "description": "对于GPU executor, 主要是利用注册进来的driver_worker去获取剩余的block数量",
+      "line": 105
+    },
+    {
+      "file": "vllm/worker/worker.py",
+      "description": "整个函数是用于获取cuda上的剩余blocks的，首先会进行profiling，然后在不发生OOM的情况下，进行block的申请\n\n整个代码都是被@torch.inference_mode装饰起来的：\n\n这段代码定义了一个名为 inference_mode 的上下文管理器（Context Manager）和装饰器（Decorator），用于在特定代码块中启用或禁用推理模式（inference mode）。推理模式是一种优化机制，用于在不涉及自动微分（autograd）的情况下执行计算，从而提高性能。这在模型推理（即使用训练好的模型进行预测）时特别有用，因为在这种情况下不需要计算梯度。\n\n# 实现原理\n上下文管理器协议：通过实现 __enter__ 和 __exit__ 方法，inference_mode 可以作为上下文管理器使用。当进入 with 语句块时，__enter__ 方法被调用，当离开 with 语句块时，__exit__ 方法被调用。\n\n装饰器功能：通过实现 __new__ 和 __call__ 方法，inference_mode 也可以作为装饰器使用。当装饰一个函数时，__call__ 方法会被调用，从而在函数执行期间启用推理模式。\n\n模式设置：inference_mode 可以接受一个布尔值作为参数，用于启用或禁用推理模式。默认情况下，推理模式是启用的。\n\n# 用途\n提高性能：在不需要计算梯度的场景下（如模型推理），通过禁用自动微分和视图跟踪等机制，可以提高计算性能。\n简化代码：使用上下文管理器或装饰器可以简化代码，使启用或禁用推理模式的操作更加直观和易于管理。\n注意事项\n线程局部：inference_mode 是线程局部的，不会影响其他线程中的计算。\n与其他机制的对比：inference_mode 是多种可以局部启用或禁用梯度的机制之一。在使用时，需要注意它们之间的差异和适用场景。",
+      "line": 173
+    },
+    {
+      "file": "vllm/worker/worker.py",
+      "description": "torch.cuda.empty_cache() 并不会直接释放 GPU 上的所有内存，而是释放那些不再需要的缓存内存。具体来说，它会减少 PyTorch 内部维护的缓存池的大小，从而使得更多的内存可以被其他进程或任务使用。需要注意的是，这个函数并不能解决内存溢出（out of memory，OOM）的问题，因为它只是释放缓存内存，而不是减少实际使用的内存。\n\n# 用途\n\n内存管理：在训练大型模型或处理大量数据时，GPU 内存可能会变得紧张。通过定期调用 torch.cuda.empty_cache()，可以有效地管理内存，避免内存溢出的问题。\n\n性能优化：在某些情况下，释放缓存内存可以提高 GPU 的使用效率，从而加快模型的训练和推理速度。\n\n# 注意事项\n\n不是万能的：torch.cuda.empty_cache() 不能解决所有内存问题。如果模型本身占用了大量内存，仅仅释放缓存内存可能不足以解决问题。\n\n频繁调用：频繁调用 torch.cuda.empty_cache() 可能会影响性能，因为它需要一定的时间来执行。因此，建议在适当的时候调用，例如在数据加载或模型保存等操作之后。\n\n内存泄漏：如果代码中存在内存泄漏，即某些内存没有被正确释放，torch.cuda.empty_cache() 也无法解决这些问题。在这种情况下，需要检查代码，确保所有不再需要的张量都被正确删除或释放。",
+      "line": 188
+    },
+    {
+      "file": "vllm/worker/worker.py",
+      "description": "torch.cuda.reset_peak_memory_stats() 是 PyTorch 库中的一个函数，用于重置当前 CUDA 设备的峰值内存使用统计信息。在深度学习训练和推理过程中，监控和管理 GPU 内存使用是非常重要的，因为它可以帮助开发者优化模型和代码，避免内存溢出等问题。\n\n# 实现原理\n\n该函数会清除之前记录的 GPU 峰值内存使用数据，并重新开始记录。这意味着在调用此函数之后，任何后续的 GPU 内存分配和释放都会被用来计算新的峰值内存使用量。\n\n# 用途\n性能调优：在模型训练或推理过程中，了解 GPU 峰值内存使用情况对于性能调优至关重要。通过重置并重新监控内存使用情况，开发者可以更准确地评估不同操作或模型结构对内存的影响。\n\n内存管理：在某些情况下，开发者可能需要多次运行模型以评估不同的参数或配置。在这种情况下，重置峰值内存统计信息可以帮助确保每次运行都是从相同的起点开始，从而获得更准确的内存使用数据。\n\n调试：在调试过程中，重置内存统计信息可以帮助开发者识别特定代码段或操作是否导致了异常的内存使用。\n\n# 注意事项\n\n设备选择：该函数会影响当前选择的 CUDA 设备。如果有多个 GPU，请确保在调用此函数之前已经选择了正确的设备。\n\n调用时机：通常在开始新的内存使用监控周期之前调用此函数，例如在每次模型训练开始之前。\n内存泄漏检测：重置内存统计信息并不会释放已经分配的 GPU 内存。如果怀疑有内存泄漏，需要结合其他工具和方法进行检测。",
+      "line": 189
+    },
+    {
+      "file": "vllm/worker/worker.py",
+      "description": "获取memory相关的profiling指标",
+      "line": 191
+    }
+  ],
+  "ref": "main"
+}
